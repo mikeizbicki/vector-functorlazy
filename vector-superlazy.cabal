@@ -1,0 +1,28 @@
+Name:                vector-superlazy
+Version:             0.0.1
+Synopsis:            "Super lazy" vectors perform the fmap operation lazily on each element; the semantics are the same as regular lazy vectors, but they have a sightly different time/space trade off
+Description:         
+Category:            Data, Data Structures
+License:             BSD3
+--License-file:        LICENSE
+Author:              Mike izbicki
+Maintainer:          mike@izbicki.me
+Build-Type:          Simple
+Cabal-Version:       >=1.8
+homepage:            http://github.com/mikeizbicki/vector-superlazy/
+bug-reports:         http://github.com/mikeizbicki/vector-superlazy/issues
+
+Library
+    Build-Depends:      
+        base                        >= 3 && < 5,
+        ghc-prim                    ,
+        vector                      >= 0.9,
+        vector-th-unbox             >= 0.2,
+        primitive                   >= 0.5
+
+    hs-source-dirs:     src
+    ghc-options:        
+        -rtsopts 
+        -O2 
+    Exposed-modules:
+        Data.Vector.SuperLazy        
