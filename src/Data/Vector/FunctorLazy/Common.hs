@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables,TypeFamilies,FlexibleInstances,MultiParamTypeClasses #-}
 
-module Data.Vector.SuperLazy.Common
+module Data.Vector.FunctorLazy.Common
     where
 
 import GHC.Prim
@@ -11,7 +11,7 @@ import Data.Monoid hiding (Any)
 
 -- | Every position in the super lazy vector is represented by a LazyBox
 data LazyBox = LazyBox 
-    { lazyc :: Int -- ^ how many functions have been applied to this box
+    { lazyc :: !Int -- ^ how many functions have been applied to this box
     , lazyb :: Any -- ^ current partially evaluated thunk
     }
 

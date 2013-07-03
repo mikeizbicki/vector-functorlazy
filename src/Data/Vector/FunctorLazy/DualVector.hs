@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables,TypeFamilies,FlexibleInstances,MultiParamTypeClasses #-}
 
-module Data.Vector.SuperLazy.DualVector
+module Data.Vector.FunctorLazy.DualVector
     where
 
 import Data.Monoid hiding (Any)
@@ -20,7 +20,7 @@ import Unsafe.Coerce
 import System.IO.Unsafe
 import GHC.Prim
 
-import Data.Vector.SuperLazy.Common
+import Data.Vector.FunctorLazy.Common
 
 -- | Has the same semantics as Data.Vector, but offers an alternative time/space tradeoff.  In particular, super lazy Vectors make all calls to fmap happen in constant time; in traditional lazy vectors, fmap must be applied to each element in the vector and takes linear time.  The downside is that slightly more memory will be used to store a LazyController object tracking the sequence of fmaps that have occurred.
 data MVector s a = MVector 
@@ -43,6 +43,12 @@ instance (Show a) => Show (Vector a) where
 
 
 instance VGM.MVector MVector a where
+    {-# INLINE basicLength #-}
+    {-# INLINE basicUnsafeNew #-}
+--     {-# INLINE basicUnsafeRead #-}
+--     {-# INLINE basicUnsafeWrite #-}
+    {-# INLINE basicOverlaps #-}
+    {-# INLINE basicUnsafeSlice #-}
     basicLength (MVector va bi c) = VGM.basicLength va
     basicUnsafeNew len = do
         mvecAny <- VGM.basicUnsafeNew len
@@ -52,21 +58,24 @@ instance VGM.MVector MVector a where
             , mvecInt = mvecInt
             , mcontrol = mempty
             }
-    basicUnsafeRead v i = do
-        any <- VGM.basicUnsafeRead (mvecAny v) i
-        count <- VGM.basicUnsafeRead (mvecInt v) i
+    basicUnsafeRead (MVector va vi (LazyController fl fc)) i = do
+--         any <- VGM.basicUnsafeRead va i
+--         let val = unsafeCoerce any
+--         return val
+        any <- VGM.basicUnsafeRead va i
+        count <- VGM.basicUnsafeRead vi i
         let val = unsafeCoerce any
-        if (funcC $ mcontrol $ v) == count
+        if fc == count
             then return val
             else do
-                let count' = funcC $ mcontrol $ v 
-                let any' = appList any (take (funcC (mcontrol v) - count) (funcL $ mcontrol $ v)) :: a
-                VGM.basicUnsafeWrite (mvecAny v) i (unsafeCoerce any')
-                VGM.basicUnsafeWrite (mvecInt v) i (count')
+                let count' = fc 
+                let any' = appList any (take (fc - count) fl) :: a
+                VGM.basicUnsafeWrite va i (unsafeCoerce any')
+                VGM.basicUnsafeWrite vi i (count')
                 return any'
-    basicUnsafeWrite v i a = do
-        VGM.basicUnsafeWrite (mvecAny v) i (unsafeCoerce a)
-        VGM.basicUnsafeWrite (mvecInt v) i (funcC $ mcontrol $ v)
+    basicUnsafeWrite (MVector va vi (LazyController fl fc)) i a = do
+        VGM.basicUnsafeWrite va i (unsafeCoerce a)
+        VGM.basicUnsafeWrite vi i fc
 --     --basicUnsafeSlice = error "Data.Vector.SuperLazy.MVector does not support basicUnsafeSlice"
     basicOverlaps = error "Data.Vector.SuperLazy.MVector does not support basicOverlaps"
     basicUnsafeSlice s t v = MVector
@@ -78,6 +87,11 @@ instance VGM.MVector MVector a where
 type instance VG.Mutable Vector = MVector
 
 instance VG.Vector Vector a where
+--     {-# INLINE basicUnsafeFreeze #-}
+--     {-# INLINE basicUnsafeThaw #-}
+--     {-# INLINE basicLength #-}
+--     {-# INLINE basicUnsafeSlice #-}
+    {-# INLINE basicUnsafeIndexM #-}
     basicUnsafeFreeze v = do
         frozenAny <- VG.basicUnsafeFreeze (mvecAny v)
         frozenInt <- VG.basicUnsafeFreeze (mvecInt v)
@@ -95,6 +109,7 @@ instance VG.Vector Vector a where
         return $ appList any (take (funcC (control v) - count) (funcL $ control v))
 
 instance Functor Vector where
+--     {-# INLINE fmap #-}
     fmap f v = v { control = LazyController
         { funcL = (unsafeCoerce f):(funcL $ control v)
         , funcC = 1+(funcC $ control v)

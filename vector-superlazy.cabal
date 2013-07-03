@@ -22,7 +22,11 @@ Library
 
     hs-source-dirs:     src
     ghc-options:        
-        -rtsopts 
         -O2 
+        -fllvm
+        -funbox-strict-fields
     Exposed-modules:
-        Data.Vector.SuperLazy        
+        Data.Vector.FunctorLazy
+        Data.Vector.FunctorLazy.DualVector
+        Data.Vector.FunctorLazy.LazyBox
+        Data.Vector.FunctorLazy.Common

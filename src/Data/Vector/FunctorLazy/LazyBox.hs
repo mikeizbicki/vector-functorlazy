@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables,TypeFamilies,FlexibleInstances,MultiParamTypeClasses #-}
 
-module Data.Vector.SuperLazy
+module Data.Vector.FunctorLazy.LazyBox
     where
 
 import Data.Monoid hiding (Any)
@@ -19,30 +19,7 @@ import Unsafe.Coerce
 import System.IO.Unsafe
 import GHC.Prim
 
--- | Every position in the super lazy vector is represented by a LazyBox
-data LazyBox = LazyBox 
-    { lazyc :: Int -- ^ how many functions have been applied to this box
-    , lazyb :: Any -- ^ current partially evaluated thunk
-    }
-
-mkLazyBox :: a -> LazyBox
-mkLazyBox a = LazyBox
-    { lazyc = 0
-    , lazyb = unsafeCoerce a
-    }
-
--- | Records the sequence of fmaps that have occurred 
-data LazyController = LazyController 
-    { funcL :: [Any]
-    , funcC :: {-# UNBOX #-} !Int
-    }
-
-instance Monoid LazyController where
-    mempty = LazyController [] 0
-    mappend a b = LazyController
-        { funcL = funcL a ++ funcL b
-        , funcC = funcC a + funcC b
-        }
+import Data.Vector.FunctorLazy.Common
 
 -- | Has the same semantics as Data.Vector, but offers an alternative time/space tradeoff.  In particular, super lazy Vectors make all calls to fmap happen in constant time; in traditional lazy vectors, fmap must be applied to each element in the vector and takes linear time.  The downside is that slightly more memory will be used to store a LazyController object tracking the sequence of fmaps that have occurred.
 data MVector s a = MVector 
@@ -135,9 +112,6 @@ instance VG.Vector VectorFail a where
             , mcontrol = control_fail v
             }
     basicLength v = VGM.basicLength (vec_fail v)
-
-appList :: Any -> [Any] -> a
-appList box xs = foldr (\f a -> (unsafeCoerce f) a) (unsafeCoerce box) xs
 
 
 {-fromList :: [a] -> MVector a
