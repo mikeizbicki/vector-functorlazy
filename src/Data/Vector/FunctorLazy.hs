@@ -1,6 +1,6 @@
 module Data.Vector.FunctorLazy
-    ( module Data.Vector.FunctorLazy.DualVector
+    ( module Data.Vector.FunctorLazy.DualArray
     )
     where
 
-import Data.Vector.FunctorLazy.DualVector
+import Data.Vector.FunctorLazy.DualArray
