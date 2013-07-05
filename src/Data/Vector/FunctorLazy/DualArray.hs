@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables,TypeFamilies,FlexibleInstances,MultiParamTypeClasses #-}
 
-module Data.Vector.FunctorLazy.DualVector
+module Data.Vector.FunctorLazy.DualArray
     where
 
 import Data.Monoid hiding (Any)
@@ -13,26 +13,30 @@ import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 import qualified Data.Vector.Unboxed.Mutable as VUM
 import Data.Vector.Unboxed.Deriving
+import Data.Primitive.Array
+import Data.Primitive.ByteArray
 
 import Control.Monad.ST
 import Control.Monad.Primitive
 import Unsafe.Coerce
 import System.IO.Unsafe
 import GHC.Prim
-import Debug.Trace
 
+import Debug.Trace
 import Data.Vector.FunctorLazy.Common
 
 -- | Has the same semantics as Data.Vector, but offers an alternative time/space tradeoff.  In particular, super lazy Vectors make all calls to fmap happen in constant time; in traditional lazy vectors, fmap must be applied to each element in the vector and takes linear time.  The downside is that slightly more memory will be used to store a LazyController object tracking the sequence of fmaps that have occurred.
 data MVector s a = MVector 
-    { mvecAny :: !(VM.MVector s Any)
-    , mvecInt :: !(VUM.MVector s Int)
+    { mvecAny :: !(MutableArray s Any)
+    , mvecInt :: !(MutableByteArray s)
+    , mlen :: !Int
     , mcontrol :: !LazyController
     }
 
 data Vector a = Vector
-    { vecAny :: !(V.Vector Any)
-    , vecInt :: !(VU.Vector Int)
+    { vecAny :: !(Array Any)
+    , vecInt :: !(ByteArray)
+    , len :: !Int
     , control :: !LazyController
     }
 
@@ -42,6 +46,8 @@ instance (Show a) => Show (Vector a) where
             go (-1) = ""
             go i = go (i-1) ++ show (v VG.! i) ++ "," 
 
+uninitialized :: a
+uninitialized = error "Data.Vector.FunctorLazy: uninitialized element"
 
 instance VGM.MVector MVector a where
     {-# INLINE basicLength #-}
@@ -50,36 +56,35 @@ instance VGM.MVector MVector a where
 --     {-# INLINE basicUnsafeWrite #-}
     {-# INLINE basicOverlaps #-}
     {-# INLINE basicUnsafeSlice #-}
-    basicLength (MVector va bi c) = VGM.basicLength va
+    basicLength (MVector va bi l c) = l
     basicUnsafeNew len = do
-        mvecAny <- VGM.basicUnsafeNew len
-        mvecInt <- VGM.basicUnsafeNew len
+        mvecAny <- newArray len uninitialized
+        mvecInt <- newByteArray (len*8)
         return $ MVector
             { mvecAny = mvecAny
             , mvecInt = mvecInt
+            , mlen = len
             , mcontrol = mempty
             }
-    basicUnsafeRead (MVector va vi (LazyController fl fc)) i = do
---         any <- VGM.basicUnsafeRead va i
---         let val = unsafeCoerce any
---         return val
-        any <- VGM.basicUnsafeRead va i
-        count <- VGM.basicUnsafeRead vi i
+    basicUnsafeRead (MVector va vi len (LazyController fl fc)) i = {-trace "basicUnsafeRead" $ -}do
+        any <- readArray va i
+        count :: Int <- readByteArray vi i
         let val = unsafeCoerce any
         if fc == count
             then return val
             else do
                 let count' = fc 
                 let any' = appList any (take (fc - count) fl) :: a
-                VGM.basicUnsafeWrite va i (unsafeCoerce any')
-                VGM.basicUnsafeWrite vi i (count')
+                writeArray va i (unsafeCoerce any')
+                writeByteArray vi i (count')
                 return any'
-    basicUnsafeWrite (MVector va vi (LazyController fl fc)) i a = do
-        VGM.basicUnsafeWrite va i (unsafeCoerce a)
-        VGM.basicUnsafeWrite vi i fc
---     --basicUnsafeSlice = error "Data.Vector.SuperLazy.MVector does not support basicUnsafeSlice"
-    basicOverlaps = error "Data.Vector.SuperLazy.MVector does not support basicOverlaps"
-    basicUnsafeSlice s len v = trace ("basicUnsafeSlice, s="++show s++",len="++show len) $ unsafePerformIO $ do 
+    basicUnsafeWrite (MVector va vi len (LazyController fl fc)) i a = {-trace "basicUnsafeWrite" $-} do
+        writeArray va i (unsafeCoerce a)
+        writeByteArray vi i fc
+-- --     --basicUnsafeSlice = error "Data.Vector.SuperLazy.MVector does not support basicUnsafeSlice"
+    basicOverlaps = error "Data.Vector.FunctorLazy.MVector: basicOverlaps"
+--     basicUnsafeSlice s t v = error "Data.Vector.FunctorLazy.Mvector: basicUnsafeSlice" 
+    basicUnsafeSlice s len v = trace ("basicUnsafeSlice, s="++show s++",len="++show len) $ unsafePerformIO $ do
         v' :: MVector RealWorld a <- VGM.basicUnsafeNew len
         do_copy s v'
         return $ unsafeCoerce v' 
@@ -90,11 +95,9 @@ instance VGM.MVector MVector a where
                     VGM.basicUnsafeWrite dst i x
                     do_copy (i+1) dst
                 | otherwise = return ()
---     basicUnsafeSlice s t v = MVector
---         { mvecAny = VGM.basicUnsafeSlice s t (mvecAny v)
---         , mvecInt = VGM.basicUnsafeSlice s t (mvecInt v)
---         , mcontrol = mcontrol v
---         }
+
+--     basicClear s t v = error "Data.Vector.FunctorLazy.Mvector: basicClear" 
+--     basicUnsafeGrow v n = error "Data.Vector.FunctorLazy.Mvector: basicUnsafeGrow" 
     basicUnsafeGrow v by = do
         v' <- VGM.basicUnsafeNew (n+by)
         VGM.basicUnsafeCopy ({-basicUnsafeSlice 0 n-} v') v
@@ -105,30 +108,32 @@ instance VGM.MVector MVector a where
 type instance VG.Mutable Vector = MVector
 
 instance VG.Vector Vector a where
---     {-# INLINE basicUnsafeFreeze #-}
---     {-# INLINE basicUnsafeThaw #-}
---     {-# INLINE basicLength #-}
+    {-# INLINE basicUnsafeFreeze #-}
+    {-# INLINE basicUnsafeThaw #-}
+    {-# INLINE basicLength #-}
 --     {-# INLINE basicUnsafeSlice #-}
     {-# INLINE basicUnsafeIndexM #-}
     basicUnsafeFreeze v = do
-        frozenAny <- VG.basicUnsafeFreeze (mvecAny v)
-        frozenInt <- VG.basicUnsafeFreeze (mvecInt v)
-        return $ Vector frozenAny frozenInt (mcontrol v)
+        frozenAny <- unsafeFreezeArray (mvecAny v)
+        frozenInt <- unsafeFreezeByteArray (mvecInt v)
+        return $ Vector frozenAny frozenInt (mlen v) (mcontrol v)
     basicUnsafeThaw v = do
-        thawedAny <- VG.basicUnsafeThaw (vecAny v)
-        thawedInt <- VG.basicUnsafeThaw (vecInt v)
-        return $ MVector thawedAny thawedInt (control v)
-    --basicLength v = VG.basicLength $ vec v
-    basicLength v = VG.basicLength $ vecAny v
-    basicUnsafeSlice s t v = Vector (VG.basicUnsafeSlice s t $ vecAny v) (VG.basicUnsafeSlice s t $ vecInt v)  (control v)
-    basicUnsafeIndexM v i = do
-        any <- VG.basicUnsafeIndexM (vecAny v) i
-        count <- VG.basicUnsafeIndexM (vecInt v) i
-        return $ appList any (take (funcC (control v) - count) (funcL $ control v))
+        thawedAny <- unsafeThawArray (vecAny v)
+        thawedInt <- unsafeThawByteArray (vecInt v)
+        return $ MVector thawedAny thawedInt (len v) (control v)
+--     --basicLength v = VG.basicLength $ vec v
+    basicLength = len
+--     basicUnsafeSlice s t v = Vector (VG.basicUnsafeSlice s t $ vecAny v) (VG.basicUnsafeSlice s t $ vecInt v)  (control v)
+    basicUnsafeIndexM (Vector va vi len (LazyController fl fc)) i = do
+        any <- indexArrayM va i
+        let count = indexByteArray vi i
+        let any' = unsafeCoerce any
+        return $ appList any' (take (fc - count) fl)
 
 instance Functor Vector where
---     {-# INLINE fmap #-}
+    {-# INLINE fmap #-}
     fmap f v = v { control = LazyController
         { funcL = (unsafeCoerce f):(funcL $ control v)
         , funcC = 1+(funcC $ control v)
         }}
+--
