@@ -1,0 +1,15 @@
+\documentclass{standalone}
+\usepackage{tikz,xcolor}
+\begin{document}
+
+\definecolor{darkgreen}{RGB}{0,127,0};
+\begin{tikzpicture}
+\node at (-6,0) {\includegraphics{boxedvector1}};
+\draw[line width=2pt] (0,4.5) to (0,-4.5);
+\node at (6.5,0) {\includegraphics{functorlazyvector1}};
+
+\node at (-6,4.5) {\textcolor{red}{\textbf{boxed vector}}};
+\node at (7.5,4.5) {\textcolor{darkgreen}{\textbf{functor-lazy vector}}};
+\end{tikzpicture}
+
+\end{document}
