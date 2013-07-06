@@ -20,7 +20,24 @@ In the picture above, the hashed green line represents a functor-lazy vector tha
 
 A standard boxed vector can be drawn as: 
 
+<p align="center">
+<img src="https://raw.github.com/mikeizbicki/vector-functorlazy/master/img/fig1.png" />
+</p>
+
 Every element in the vector is really a pointer.  They might point to values or unevaluated expressions; many elements can even point to the same thing.
+<p align="center">
+<img src="https://raw.github.com/mikeizbicki/vector-functorlazy/master/img/fig2.png" />
+</p>
+<p align="center">
+<img src="https://raw.github.com/mikeizbicki/vector-functorlazy/master/img/fig3.png" />
+</p>
+<p align="center">
+<img src="https://raw.github.com/mikeizbicki/vector-functorlazy/master/img/fig4.png" />
+</p>
+<p align="center">
+<img src="https://raw.github.com/mikeizbicki/vector-functorlazy/master/img/fig5.png" />
+</p>
+
 
 ## Final notes
 
