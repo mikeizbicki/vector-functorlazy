@@ -1,5 +1,6 @@
 \documentclass{standalone}
 \usepackage{tikz}
+\definecolor{lightgreen}{RGB}{127,255,127}
 \begin{document}
 
 
@@ -17,9 +18,9 @@
 %\node[minimum width=10cm,minimum height=1cm,draw] at (4.5,3) {$(*2) : [\ ]$};
 \node[minimum width=10cm,minimum height=1cm,draw] at (4.5,3) {$(+7) : (*2) : [\ ]$};
 
-\node[minimum size=1cm,draw] at (0,1.2) {2};
-\node[minimum size=1cm,draw] at (1,1.2) {2};
-\node[minimum size=1cm,draw] at (2,1.2) {2};
+\node[minimum size=1cm,draw,fill=lightgreen] at (0,1.2) {2};
+\node[minimum size=1cm,draw,fill=lightgreen] at (1,1.2) {2};
+\node[minimum size=1cm,draw,fill=lightgreen] at (2,1.2) {2};
 \node[minimum size=1cm,draw] at (3,1.2) {0};
 \node[minimum size=1cm,draw] at (4,1.2) {1};
 \node[minimum size=1cm,minimum width=3cm,draw] at (6,1.2) {...};
@@ -35,8 +36,8 @@
 \node[minimum size=1cm,draw] at (8,0) {};
 \node[minimum size=1cm,draw] at (9,0) {};
 
-\node[minimum size=1cm,draw] (a) at (-0.2,-2.3) {-54};
-\node[minimum size=1cm,draw] (b) at (1.5,-3.5) {-15.4};
+\node[minimum size=1cm,draw,fill=lightgreen] (a) at (-0.2,-2.3) {-54};
+\node[minimum size=1cm,draw,fill=lightgreen] (b) at (1.5,-3.5) {-15.4};
 \node[minimum size=1cm,draw] (c) at (3.1,-2.0) {1.32};
 \node[minimum size=1cm,draw] (d) at (5.3,-3.4) {34};
 \node[minimum size=1cm,draw] (e) at (7.5,-1.9) {57.2};
