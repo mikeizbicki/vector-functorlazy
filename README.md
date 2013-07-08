@@ -14,7 +14,7 @@ Another downside is that the current implementation is not as efficient as boxed
 <img src="https://raw.github.com/mikeizbicki/vector-functorlazy/master/img/algorithm-compare.png" />
 </p>
 
-In the picture above, the hashed green line represents a functor-lazy vector that has had a lazy `fmap` application before running the algorithm.  Sorting this vector requires strictly more work than sorting the functor-lazy vector without `fmap` applied, but it still runs faster.   This is one of the reasons I believe someone more familiar with CPU-level optimizations could make this data structure much more efficient.
+In the picture above, the hashed green line represents a functor-lazy vector that has had a lazy `fmap` application before running the sorting algorithm (as implemented in the [vector-algorithms](http://hackage.haskell.org/package/vector-algorithms) package).  Sorting this vector requires strictly more work than sorting the functor-lazy vector without `fmap` applied, but it still runs faster.   This is one of the reasons I believe someone more familiar with CPU-level optimizations could make this data structure much more efficient.
 
 ## How they work
 
