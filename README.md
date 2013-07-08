@@ -8,7 +8,7 @@ Functor-lazy vectors are boxed vectors that support a fast `fmap` operation.  Ca
 <img src="https://raw.github.com/mikeizbicki/vector-functorlazy/master/img/functorlazy-v-boxed.png" />
 </p>
 
-Another downside is that the current implementation is not as efficient as boxed vectors.  For some applications, the functor-lazy vector can be almost 4x slower than boxed vectors.  I believe this is mostly due to cache misses (see below), and that a more efficient implementation could avoid this problem.  
+Another downside is that the current implementation is not as efficient as boxed vectors.  For some applications, the functor-lazy vector is about 4x slower than boxed vectors.  I believe this is mostly due to cache misses ([see below](https://github.com/mikeizbicki/vector-functorlazy/#cache-misses-galore)), and that a more efficient implementation could avoid this problem.  
 
 <p align="center">
 <img src="https://raw.github.com/mikeizbicki/vector-functorlazy/master/img/algorithm-compare.png" />
@@ -18,27 +18,27 @@ In the picture above, the hashed green line represents a functor-lazy vector tha
 
 ## How they work
 
-The easiest way to see the difference between boxed and functor-lazy vectors is through pictures.  I've drawn the two data structures below.
+The easiest way to see the difference between boxed and functor-lazy vectors is by example.  I've drawn the two data structures below.
 
 <p align="center">
 <img src="https://raw.github.com/mikeizbicki/vector-functorlazy/master/img/fig1.png" />
 </p>
 
-In the boxed vector, every element is really a pointer.  They might point to values or unevaluated expressions; many elements can even point to the same thing.  The functor-lazy vector, in contrast, has a boxed vector inside of it (called *vecAny*), an unboxed vector (*vecInt*), and a list of functions.
+In the boxed vector, every element is really a pointer.  They might point to values or unevaluated expressions; many elements can even point to the same thing.  The functor-lazy vector, in contrast, has a boxed vector inside of it (called *vecAny* ), an unboxed vector ( *vecInt* ), and a list of functions ( *funcList* ).
 
-When we run the following code:
+Now let's run the following code:
 
     fmap (*2) vector
 
-our diagrams get transformed into:
+Changes in the diagrams are highlighted below.
 
 <p align="center">
 <img src="https://raw.github.com/mikeizbicki/vector-functorlazy/master/img/fig2.png" />
 </p>
 
-The boxed vector must visit every single element and apply the `(*2)` function.  That's why it takes linear time.  The functor-lazy vector doesn't visit any of the elements.  Instead, it just adds `(*2)` to *funcList*.  Internally, need to use `unsafeCoerce` to allow us to append functions of any type to the list.
+The boxed vector must visit every single element and apply the `(*2)` function.  The boxes themselves are lazy and won't be evaluated immediately, but we still must create n new thunks.  That's why it takes linear time.  The functor-lazy vector doesn't visit any of the elements.  Instead, it just adds `(*2)` to *funcList*.  Internally, the library uses `unsafeCoerce` to allow us to append functions of any type to the list.
 
-Now, let's actually visit the nodes
+Now, let's actually visit the nodes to force evaluation of the values:
 
     print (vector ! 1)
     print (vector ! 4)
@@ -49,7 +49,7 @@ Our diagrams become:
 <img src="https://raw.github.com/mikeizbicki/vector-functorlazy/master/img/fig3.png" />
 </p>
 
-The boxed vector evaluates those elements using the standard GHC run time.  The functor-lazy vector does something quite different.  First, it checks to see how many functions have been applied to the element (by looking up the appropriate index in *vecInt*).  If the box is not fully up to date, then the box will be updated and modified by applying the functions.  Then, *vecInt* is updated to show that the box is completely up-to-date.
+The boxed vector accesses the elements, sees that there is a computation waiting to be performed, permorms it, then stores the result.  The functor-lazy vector does something quite different.  First, it checks to see how many functions have been applied to the element (by looking up the appropriate index in *vecInt*).  In this case, the elements are not up-to-date because there is one function in the list, but *vecInt* says that no functions have been applied to the box.  Therefore, we apply all the functions in the list and update the box and *vecInt*.  Since we are actually modifying the values of these vectors, this requires a call to `unsafePerformIO`.  Assuming there are no bugs, this should actually be safe :)
 
 Now, let's `fmap` once more:
 
@@ -68,9 +68,12 @@ And evaluate some more elements:
 <img src="https://raw.github.com/mikeizbicki/vector-functorlazy/master/img/fig5.png" />
 </p>
 
+### Cache misses galore
+
+In the functor-lazy vector, we must access four completely different regions of memory every time we do a read.  In particular, there are two different vectors that we must access.  There is no way for both of these vectors to fit in the cache at the same time, so we are basically guaranteed to get a cache miss everytime we access a vector element.  I'm sure there must be a way to avoid this...
 
 ## Final notes
 
 The [examples directory](https://github.com/mikeizbicki/vector-functorlazy/tree/master/src/examples) contains all the code I used for run time and correctness testing.
 
-If you have any questions/comments/suggestions, please let me know!
+If you have any questions/comments/bug reports, please let me know!
